@@ -36,8 +36,8 @@ std::optional<snap> MM2::sample_take2()
     getline(proc_status, ln);
     const auto r = ln.c_str();
     const auto e = r + ln.size();
-    cout << "line: " << ln << " sz:" << ln.size() << endl;
-    fmt::print("\t\tline:{} sz:{} at offset:{:s}\n", ln, ln.size(), r + 7);
+    //cout << "line: " << ln << " sz:" << ln.size() << endl;
+    //fmt::print("\t\tline:{} sz:{} at offset:{:s}\n", ln, ln.size(), r + 7);
 
     // clang-format off
     if (ln.starts_with("VmSize:")) { from_chars(r + 7, e, s.size); yet_to_find--; }
@@ -47,7 +47,7 @@ std::optional<snap> MM2::sample_take2()
     else if (ln.starts_with("VmPeak:")) { auto [ptr,ec] = from_chars(r + 7, e, s.peak); yet_to_find--; if (ec != std::errc()) {cout << "error: " << *(r+7) << endl;} }
     else if (ln.starts_with("VmData:")) { from_chars(r + 7, e, s.data); yet_to_find--; }
     else if (ln.starts_with("VmData:")) { from_chars(r + 7, e, s.data); yet_to_find--; }
-    fmt::print("\tyet_to_find: {} collected:{}\n", yet_to_find, s);
+    //fmt::print("\tyet_to_find: {} collected:{}\n", yet_to_find, s);
     // clang-format on
   }
 
@@ -70,9 +70,9 @@ bool MM2::cmp_against(const std::string& ln,
     while (*s && isblank(*s)) {
       s++;
     }
-    auto [ptr, ec] = from_chars(s, p + ln.size(), v);
+    /*auto [ptr, ec] = */from_chars(s, p + ln.size(), v);
 
-   fmt::print("\t\ts<{:s}> v:{}  {}\n", s, v, (ec == std::errc()) ? "ok" : "error");
+   //fmt::print("\t\ts<{:s}> v:{}  {}\n", s, v, (ec == std::errc()) ? "ok" : "error");
 
     cnt++;
     return true;
@@ -99,8 +99,8 @@ std::optional<snap> MM2::sample()
     getline(proc_status, ln);
     const auto r = ln.c_str();
     //const auto e = r + ln.size();
-    cout << "line: " << ln << " sz:" << ln.size() << endl;
-    fmt::print("\t\tline:{} sz:{} at offset:{:s}\n", ln, ln.size(), r + 7);
+    //cout << "line: " << ln << " sz:" << ln.size() << endl;
+    //fmt::print("\t\tline:{} sz:{} at offset:{:s}\n", ln, ln.size(), r + 7);
 
     cmp_against(ln, "VmSize:", s.size, yet_to_find) ||
       cmp_against(ln, "VmRSS:", s.rss, yet_to_find) ||

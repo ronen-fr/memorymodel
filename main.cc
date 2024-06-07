@@ -3,7 +3,7 @@
 #include "mem_new.h"
 #include "mem_orig.h"
 
-//#define RUN_THE_BM
+#define RUN_THE_BM
 
 
 CephContext stam;
@@ -103,6 +103,7 @@ void BM_NEW2(benchmark::State& state)
   [[maybe_unused]] volatile long rss;
   for (auto _ : state) {
     auto s = mm.sample();
+    assert(s->rss > 0);
     rss = s->rss;
   }
 }
