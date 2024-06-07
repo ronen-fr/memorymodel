@@ -3,6 +3,8 @@
 #include "mem_new.h"
 #include "mem_orig.h"
 
+//#define RUN_THE_BM
+
 
 CephContext stam;
 
@@ -29,13 +31,14 @@ void exp_new()
   auto s = mm.sample();
   [[maybe_unused]] volatile char* p = new char[36 * 1024 * 1024];
   auto t = mm.sample();
+  auto r = mm.sample();
   // delete[] p;
 
-  fmt::print("{}:\t{}\n\t\t{}\n", __func__, *s, *t);
+  fmt::print("{}:\t{}\n\t\t{}\n\t\t{}\n", __func__, *s, *t, *r);
 }
 
 
-#if 0
+#ifndef RUN_THE_BM
 int main()
 {
   exp_orig();
@@ -73,14 +76,41 @@ void BM_NEW_samp2(benchmark::State& state)
   [[maybe_unused]] volatile long rss;
   for (auto _ : state) {
     MM2 mm;
-    auto s = mm.sample_take2();
+    auto s = mm.sample();
     rss = s->rss;
   }
 }
 BENCHMARK(BM_NEW_samp2);
 
 
-#if 1
+// with object creation outside of the loop (and - for mem2, it means the file is opened only once)
+
+void BM_ORIG2(benchmark::State& state)
+{
+  MemoryModel mm{&stam};
+  MemoryModel::snap s;
+  [[maybe_unused]] volatile long rss;
+  for (auto _ : state) {
+    mm.sample(&s);
+    rss = s.rss;
+  }
+}
+BENCHMARK(BM_ORIG2);
+
+void BM_NEW2(benchmark::State& state)
+{
+  MM2 mm;
+  [[maybe_unused]] volatile long rss;
+  for (auto _ : state) {
+    auto s = mm.sample();
+    rss = s->rss;
+  }
+}
+BENCHMARK(BM_NEW2);
+
+
+
+#ifdef RUN_THE_BM
 
 BENCHMARK_MAIN();
 

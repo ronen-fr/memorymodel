@@ -15,85 +15,100 @@ using namespace std;
 using std::cout;
 using snap = MM2::snap;
 
-bool MM2::cmp_against(const std::string& ln,
-                      std::string_view param,
-                      long& v,
-                      int& cnt) const
-{
-  if (ln.starts_with(param)) {
-    cnt++;
-    from_chars(ln.c_str() + param.size(), ln.c_str() + ln.size(), v);
-    return true;
-  }
-  return false;
-}
 
 std::optional<snap> MM2::sample_take2()
 {
-  snap s;
-
-  ifstream f;
-
-  f.open("/proc/self/status");
-  if (!f.is_open()) {
+  if (!proc_status.is_open()) {
     cout << "check_memory_usage unable to open "
             "/proc/self/status"
          << endl;
     return std::nullopt;
   }
+  proc_status.clear();
+  proc_status.seekg(0);
+  snap s;
+
 
   // we will be looking for 6 entries
   int yet_to_find = 6;
-  while (!f.eof() && yet_to_find) {
+  while (!proc_status.eof() && yet_to_find) {
     string ln;
-    getline(f, ln);
+    getline(proc_status, ln);
     const auto r = ln.c_str();
-    const auto e = ln.c_str() + ln.size();
+    const auto e = r + ln.size();
+    cout << "line: " << ln << " sz:" << ln.size() << endl;
+    fmt::print("\t\tline:{} sz:{} at offset:{:s}\n", ln, ln.size(), r + 7);
 
     // clang-format off
     if (ln.starts_with("VmSize:")) { from_chars(r + 7, e, s.size); yet_to_find--; }
     else if (ln.starts_with("VmRSS:")) { from_chars(r + 6, e, s.rss); yet_to_find--; }
     else if (ln.starts_with("VmHWM:")) { from_chars(r + 6, e, s.hwm); yet_to_find--; }
     else if (ln.starts_with("VmLib:")) { from_chars(r + 6, e, s.lib); yet_to_find--; }
-    else if (ln.starts_with("VmPeak:")) { from_chars(r + 7, e, s.peak); yet_to_find--; }
+    else if (ln.starts_with("VmPeak:")) { auto [ptr,ec] = from_chars(r + 7, e, s.peak); yet_to_find--; if (ec != std::errc()) {cout << "error: " << *(r+7) << endl;} }
     else if (ln.starts_with("VmData:")) { from_chars(r + 7, e, s.data); yet_to_find--; }
+    else if (ln.starts_with("VmData:")) { from_chars(r + 7, e, s.data); yet_to_find--; }
+    fmt::print("\tyet_to_find: {} collected:{}\n", yet_to_find, s);
     // clang-format on
   }
-  f.close();
 
   return s;
 }
 
 
+bool MM2::cmp_against(const std::string& ln,
+                      std::string_view param,
+                      long& v,
+                      int& cnt) const
+{
+  if (ln.size() < (param.size() + 10)) {
+    return false;
+  }
+  if (ln.starts_with(param)) {
+    auto p = ln.c_str();
+    auto s = ln.c_str() + param.size();
+    // charconv does not like leading spaces
+    while (*s && isblank(*s)) {
+      s++;
+    }
+    auto [ptr, ec] = from_chars(s, p + ln.size(), v);
+
+   fmt::print("\t\ts<{:s}> v:{}  {}\n", s, v, (ec == std::errc()) ? "ok" : "error");
+
+    cnt++;
+    return true;
+  }
+  return false;
+}
 
 std::optional<snap> MM2::sample()
 {
-  snap s;
-
-  ifstream f;
-
-  f.open("/proc/self/status");
-  if (!f.is_open()) {
+  if (!proc_status.is_open()) {
     cout << "check_memory_usage unable to open "
             "/proc/self/status"
          << endl;
     return std::nullopt;
   }
+  proc_status.clear();
+  proc_status.seekg(0);
+  snap s;
 
   // we will be looking for 6 entries
   int yet_to_find = 6;
-  while (!f.eof() && yet_to_find) {
-    string line;
-    getline(f, line);
+  while (!proc_status.eof() && yet_to_find) {
+    string ln;
+    getline(proc_status, ln);
+    const auto r = ln.c_str();
+    //const auto e = r + ln.size();
+    cout << "line: " << ln << " sz:" << ln.size() << endl;
+    fmt::print("\t\tline:{} sz:{} at offset:{:s}\n", ln, ln.size(), r + 7);
 
-    cmp_against(line, "VmSize:", s.size, yet_to_find) ||
-      cmp_against(line, "VmRSS:", s.rss, yet_to_find) ||
-      cmp_against(line, "VmHWM:", s.hwm, yet_to_find) ||
-      cmp_against(line, "VmLib:", s.lib, yet_to_find) ||
-      cmp_against(line, "VmPeak:", s.peak, yet_to_find) ||
-      cmp_against(line, "VmData:", s.data, yet_to_find);
+    cmp_against(ln, "VmSize:", s.size, yet_to_find) ||
+      cmp_against(ln, "VmRSS:", s.rss, yet_to_find) ||
+      cmp_against(ln, "VmHWM:", s.hwm, yet_to_find) ||
+      cmp_against(ln, "VmLib:", s.lib, yet_to_find) ||
+      cmp_against(ln, "VmPeak:", s.peak, yet_to_find) ||
+      cmp_against(ln, "VmData:", s.data, yet_to_find);
   }
-  f.close();
 #ifdef NOT_YET
   f.open("/proc/self/maps");
   if (!f.is_open()) {
