@@ -98,6 +98,59 @@ void MemoryModel::_sample(snap *psnap)
 #endif
 }
 
+long MemoryModel::compute_heap()
+{
+  ifstream f;
 
+  f.open( "/proc/self/maps");
+  if (!f.is_open()) {
+    //ldout(cct, 0) << "check_memory_usage unable to open "  "/proc/self/maps" << dendl;
+    cout << "check_memory_usage unable to open "  "/proc/self/maps" << endl;
+    return 0;
+  }
+
+  long heap = 0;
+  while (f.is_open() && !f.eof()) {
+    string line;
+    getline(f, line);
+    //ldout(cct, 0) << "line is " << line << dendl;
+
+    const char *start = line.c_str();
+    const char *dash = start;
+    while (*dash && *dash != '-') dash++;
+    if (!*dash)
+      continue;
+    const char *end = dash + 1;
+    while (*end && *end != ' ') end++;
+    if (!*end)
+      continue;
+    unsigned long long as = strtoll(start, 0, 16);
+    unsigned long long ae = strtoll(dash+1, 0, 16);
+
+    //ldout(cct, 0) << std::hex << as << " to " << ae << std::dec << dendl;
+
+    end++;
+    const char *mode = end;
+
+    int skip = 4;
+    while (skip--) {
+      end++;
+      while (*end && *end != ' ') end++;
+    }
+    if (*end)
+      end++;
+
+    long size = ae - as;
+    //ldout(cct, 0) << "size " << size << " mode is '" << mode << "' end is '" << end << "'" << dendl;
+
+    /*
+     * anything 'rw' and anon is assumed to be heap.
+     */
+    if (mode[0] == 'r' && mode[1] == 'w' && !*end)
+      heap += size;
+  }
+
+  return heap >> 10;
+}
 
 

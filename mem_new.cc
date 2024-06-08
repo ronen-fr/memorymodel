@@ -36,8 +36,8 @@ std::optional<snap> MM2::sample_take2()
     getline(proc_status, ln);
     const auto r = ln.c_str();
     const auto e = r + ln.size();
-    //cout << "line: " << ln << " sz:" << ln.size() << endl;
-    //fmt::print("\t\tline:{} sz:{} at offset:{:s}\n", ln, ln.size(), r + 7);
+    // cout << "line: " << ln << " sz:" << ln.size() << endl;
+    // fmt::print("\t\tline:{} sz:{} at offset:{:s}\n", ln, ln.size(), r + 7);
 
     // clang-format off
     if (ln.starts_with("VmSize:")) { from_chars(r + 7, e, s.size); yet_to_find--; }
@@ -55,10 +55,7 @@ std::optional<snap> MM2::sample_take2()
 }
 
 
-bool MM2::cmp_against(const std::string& ln,
-                      std::string_view param,
-                      long& v,
-                      int& cnt) const
+inline bool MM2::cmp_against(const std::string& ln, std::string_view param, long& v) const
 {
   if (ln.size() < (param.size() + 10)) {
     return false;
@@ -70,11 +67,9 @@ bool MM2::cmp_against(const std::string& ln,
     while (*s && isblank(*s)) {
       s++;
     }
-    /*auto [ptr, ec] = */from_chars(s, p + ln.size(), v);
+    /*auto [ptr, ec] = */ from_chars(s, p + ln.size(), v);
 
-   //fmt::print("\t\ts<{:s}> v:{}  {}\n", s, v, (ec == std::errc()) ? "ok" : "error");
-
-    cnt++;
+    // fmt::print("\t\ts<{:s}> v:{}  {}\n", s, v, (ec == std::errc()) ? "ok" : "error");
     return true;
   }
   return false;
@@ -94,20 +89,19 @@ std::optional<snap> MM2::sample()
 
   // we will be looking for 6 entries
   int yet_to_find = 6;
-  while (!proc_status.eof() && yet_to_find) {
+  while (!proc_status.eof() && yet_to_find > 0) {
     string ln;
     getline(proc_status, ln);
-    const auto r = ln.c_str();
-    //const auto e = r + ln.size();
-    //cout << "line: " << ln << " sz:" << ln.size() << endl;
-    //fmt::print("\t\tline:{} sz:{} at offset:{:s}\n", ln, ln.size(), r + 7);
+    //const auto r = ln.c_str();
+    // const auto e = r + ln.size();
+    // cout << "line: " << ln << " sz:" << ln.size() << endl;
+    // fmt::print("\t\tline:{} sz:{} at offset:{:s}\n", ln, ln.size(), r + 7);
 
-    cmp_against(ln, "VmSize:", s.size, yet_to_find) ||
-      cmp_against(ln, "VmRSS:", s.rss, yet_to_find) ||
-      cmp_against(ln, "VmHWM:", s.hwm, yet_to_find) ||
-      cmp_against(ln, "VmLib:", s.lib, yet_to_find) ||
-      cmp_against(ln, "VmPeak:", s.peak, yet_to_find) ||
-      cmp_against(ln, "VmData:", s.data, yet_to_find);
+    if (cmp_against(ln, "VmSize:", s.size) || cmp_against(ln, "VmRSS:", s.rss) ||
+        cmp_against(ln, "VmHWM:", s.hwm) || cmp_against(ln, "VmLib:", s.lib) ||
+        cmp_against(ln, "VmPeak:", s.peak) || cmp_against(ln, "VmData:", s.data)) {
+      yet_to_find--;
+    }
   }
 #ifdef NOT_YET
   f.open("/proc/self/maps");
@@ -162,3 +156,75 @@ std::optional<snap> MM2::sample()
 #endif
   return s;
 }
+
+// should return 'expected'
+long MM2::compute_heap()
+{
+  if (!proc_maps.is_open()) {
+    cout << "check_memory_usage unable to open "
+            "/proc/self/maps"
+         << endl;
+    return 0;
+  }
+
+  proc_maps.clear();
+  proc_maps.seekg(0);
+  long heap = 0;
+
+  while (proc_maps.is_open() && !proc_maps.eof()) {
+    string line;
+    getline(proc_maps, line);
+
+    const char* start = line.c_str();
+    const char* dash = start;
+    while (*dash && *dash != '-')
+      dash++;
+    if (!*dash)
+      continue;
+    const char* end = dash + 1;
+    while (*end && *end != ' ')
+      end++;
+    if (!*end)
+      continue;
+    unsigned long long as = strtoll(start, 0, 16);
+    unsigned long long ae = strtoll(dash + 1, 0, 16);
+
+    end++;
+    const char* mode = end;
+
+    int skip = 4;
+    while (skip--) {
+      end++;
+      while (*end && *end != ' ')
+        end++;
+    }
+    if (*end)
+      end++;
+
+    long size = ae - as;
+
+    /*
+     * anything 'rw' and anon is assumed to be heap.
+     */
+    if (mode[0] == 'r' && mode[1] == 'w' && !*end)
+      heap += size;
+  }
+
+  return heap >> 10;
+}
+
+/*
+improvement in the heap calculation function, just from having the file open:
+
+-------------------------------------------------------
+Benchmark             Time             CPU   Iterations
+-------------------------------------------------------
+BM_ORIG           10621 ns        10510 ns        68111
+BM_NEW            10832 ns        10683 ns        65282
+BM_NEW_samp2      10681 ns        10600 ns        66600
+BM_ORIG2          11382 ns        11273 ns        64043
+BM_NEW2            5079 ns         5041 ns       138949
+BM_HEAP_ORIG      19173 ns        19043 ns        36073
+BM_HEAP_NEW       15594 ns        15492 ns        44471
+
+*/

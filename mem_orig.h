@@ -39,6 +39,8 @@ public:
     if (p)
       *p = last;
   }
+
+  long compute_heap();
 };
 
 

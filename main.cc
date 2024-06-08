@@ -109,6 +109,28 @@ void BM_NEW2(benchmark::State& state)
 }
 BENCHMARK(BM_NEW2);
 
+// just "compute-heap" for both
+
+void BM_HEAP_ORIG(benchmark::State& state)
+{
+  MemoryModel mm{&stam};
+  MemoryModel::snap s;
+  [[maybe_unused]] volatile long hp;
+  for (auto _ : state) {
+    hp = mm.compute_heap();
+  }
+}
+BENCHMARK(BM_HEAP_ORIG);
+
+void BM_HEAP_NEW(benchmark::State& state)
+{
+  MM2 mm;
+  [[maybe_unused]] volatile long hp;
+  for (auto _ : state) {
+    hp = mm.compute_heap();
+  }
+}
+BENCHMARK(BM_HEAP_NEW);
 
 
 #ifdef RUN_THE_BM

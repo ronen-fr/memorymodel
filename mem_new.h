@@ -36,13 +36,15 @@ class MM2 {
   std::ifstream proc_status{"/proc/self/status"};
   std::ifstream proc_maps{"/proc/self/maps"};
 
-  inline bool cmp_against(const std::string& ln, std::string_view param, long& v, int& cnt) const;
+  inline bool cmp_against(const std::string& ln, std::string_view param, long& v) const;
 
  public:
   //explicit MM2();
 
   std::optional<snap> sample();
   std::optional<snap> sample_take2();
+
+  long compute_heap();
 };
 
 
