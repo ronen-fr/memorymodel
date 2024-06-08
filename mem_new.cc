@@ -92,10 +92,10 @@ std::optional<snap> MM2::sample()
   while (!proc_status.eof() && yet_to_find > 0) {
     string ln;
     getline(proc_status, ln);
-    //const auto r = ln.c_str();
-    // const auto e = r + ln.size();
-    // cout << "line: " << ln << " sz:" << ln.size() << endl;
-    // fmt::print("\t\tline:{} sz:{} at offset:{:s}\n", ln, ln.size(), r + 7);
+    // const auto r = ln.c_str();
+    //  const auto e = r + ln.size();
+    //  cout << "line: " << ln << " sz:" << ln.size() << endl;
+    //  fmt::print("\t\tline:{} sz:{} at offset:{:s}\n", ln, ln.size(), r + 7);
 
     if (cmp_against(ln, "VmSize:", s.size) || cmp_against(ln, "VmRSS:", s.rss) ||
         cmp_against(ln, "VmHWM:", s.hwm) || cmp_against(ln, "VmLib:", s.lib) ||
@@ -213,6 +213,90 @@ long MM2::compute_heap()
   return heap >> 10;
 }
 
+long MM2::compute_heap2()
+{
+  if (!proc_maps.is_open()) {
+    cout << "check_memory_usage unable to open "
+            "/proc/self/maps"
+         << endl;
+    return 0;
+  }
+
+  proc_maps.clear();
+  proc_maps.seekg(0);
+  long heap = 0;
+
+  while (proc_maps.is_open() && !proc_maps.eof()) {
+    string line;
+    getline(proc_maps, line);
+
+//     fmt::print("\tline:{}\n", line);
+
+    if (line.length() < 48) {
+      // a malformed line. We expect at least
+      // '560c03f8d000-560c03fae000 rw-p 00000000 00:00 0'
+      continue;
+    }
+
+    const char* start = line.c_str();
+    const char* dash = start;
+    while (*dash && *dash != '-')
+      dash++;
+    if (!*dash)
+      continue;
+    const char* end = dash + 1;
+    while (*end && *end != ' ')
+      end++;
+    if (!*end)
+      continue;
+
+    auto addr_end = end;
+    end++;
+    const char* mode = end;
+
+
+//     // for debugging:
+//     {
+//       uint64_t as{0ull};
+//       from_chars(start, dash, as, 16);
+//       uint64_t ae{0ull};
+//       from_chars(dash + 1, addr_end, ae, 16);
+//       fmt::print("\t\tas:{:x} ae:{:x} -> {}\n", as, ae, ((ae - as) >> 10));
+//     }
+
+
+    /*
+     * anything 'rw' and anon is assumed to be heap.
+     * But we should count lines with inode '0' and '[heap]' as well
+     */
+    if (mode[0] != 'r' || mode[1] != 'w') {
+      continue;
+    }
+
+    auto the_rest = line.substr(5 + end - start);
+
+//     fmt::print("\n\tline:|{}| {}/{}) |{}|\n", line, mode[0], mode[1], the_rest);
+    if (!the_rest.starts_with("00000000 00:00 0")) {
+      continue;
+    }
+    if (the_rest.ends_with("[stack]")) {
+      // RRR should we exclude the stack?
+      continue;
+    }
+
+    // calculate and sum the size of the heap segment
+    uint64_t as{0ull};
+    from_chars(start, dash, as, 16);
+    uint64_t ae{0ull};
+    from_chars(dash + 1, addr_end, ae, 16);
+//     fmt::print("\t\tas:{:x} ae:{:x} -> {}\n", as, ae, ((ae - as) >> 10));
+    long size = ae - as;
+    heap += size;
+  }
+
+  return heap >> 10;
+}
+
 /*
 improvement in the heap calculation function, just from having the file open:
 
@@ -226,5 +310,20 @@ BM_ORIG2          11382 ns        11273 ns        64043
 BM_NEW2            5079 ns         5041 ns       138949
 BM_HEAP_ORIG      19173 ns        19043 ns        36073
 BM_HEAP_NEW       15594 ns        15492 ns        44471
+
+heap2, which uses substr:
+-------------------------------------------------------
+Benchmark             Time             CPU   Iterations
+-------------------------------------------------------
+BM_ORIG           11299 ns        11178 ns        63913
+BM_NEW            11244 ns        11124 ns        63750
+BM_NEW_samp2      10948 ns        10836 ns        64014
+BM_ORIG2          11203 ns        11088 ns        64590
+BM_NEW2            5318 ns         5260 ns       133662
+BM_HEAP_ORIG      19732 ns        19430 ns        36269
+BM_HEAP_NEW       16294 ns        16079 ns        43558
+BM_HEAP_NEW2      13689 ns        13534 ns        53960
+
+
 
 */

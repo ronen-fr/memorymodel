@@ -45,6 +45,7 @@ class MM2 {
   std::optional<snap> sample_take2();
 
   long compute_heap();
+  long compute_heap2();
 };
 
 

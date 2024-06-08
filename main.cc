@@ -16,12 +16,15 @@ void exp_orig()
   MemoryModel::snap s;
   mm.sample(&s);
 
+  auto heap1 = mm.compute_heap();
+
   [[maybe_unused]] volatile char* p = new char[24 * 1024 * 1024];
   MemoryModel::snap t;
   mm.sample(&t);
   delete[] p;
+  auto heap2 = mm.compute_heap();
 
-  fmt::print("{}:\t{}\n\t\t{}\n", __func__, s, t);
+  fmt::print("{}:\t{}\n\t\t{}\n\theap: {} {}\n", __func__, s, t, heap1, heap2);
 }
 
 
@@ -29,12 +32,15 @@ void exp_new()
 {
   MM2 mm;
   auto s = mm.sample();
+  auto heap1 = mm.compute_heap();
   [[maybe_unused]] volatile char* p = new char[36 * 1024 * 1024];
   auto t = mm.sample();
   auto r = mm.sample();
-  // delete[] p;
+  auto heap2 = mm.compute_heap2();
+  delete[] p;
 
-  fmt::print("{}:\t{}\n\t\t{}\n\t\t{}\n", __func__, *s, *t, *r);
+  fmt::print("{}:\t{}\n\t\t{}\n\t\t{}\n\theap: {} {}\n", __func__, *s, *t, *r, heap1,
+             heap2);
 }
 
 
@@ -83,7 +89,8 @@ void BM_NEW_samp2(benchmark::State& state)
 BENCHMARK(BM_NEW_samp2);
 
 
-// with object creation outside of the loop (and - for mem2, it means the file is opened only once)
+// with object creation outside of the loop (and - for mem2, it means the file is opened
+// only once)
 
 void BM_ORIG2(benchmark::State& state)
 {
@@ -132,6 +139,15 @@ void BM_HEAP_NEW(benchmark::State& state)
 }
 BENCHMARK(BM_HEAP_NEW);
 
+void BM_HEAP_NEW2(benchmark::State& state)
+{
+  MM2 mm;
+  [[maybe_unused]] volatile long hp;
+  for (auto _ : state) {
+    hp = mm.compute_heap2();
+  }
+}
+BENCHMARK(BM_HEAP_NEW2);
 
 #ifdef RUN_THE_BM
 
