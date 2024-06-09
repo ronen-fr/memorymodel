@@ -10,6 +10,8 @@
 #include <optional>
 #include <string_view>
 
+using namespace std::string_literals;
+
 
 class MM2 {
  public:
@@ -37,6 +39,7 @@ class MM2 {
   std::ifstream proc_maps{"/proc/self/maps"};
 
   inline bool cmp_against(const std::string& ln, std::string_view param, long& v) const;
+  inline static constexpr std::string_view MAP_TXT{"00000000 00:00 0"};
 
  public:
   //explicit MM2();
@@ -46,6 +49,7 @@ class MM2 {
 
   long compute_heap();
   long compute_heap2();
+  long compute_heap3();
 };
 
 

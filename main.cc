@@ -38,9 +38,10 @@ void exp_new()
   auto r = mm.sample();
   auto heap2 = mm.compute_heap2();
   delete[] p;
+  auto heap3 = mm.compute_heap3();
 
-  fmt::print("{}:\t{}\n\t\t{}\n\t\t{}\n\theap: {} {}\n", __func__, *s, *t, *r, heap1,
-             heap2);
+  fmt::print("{}:\t{}\n\t\t{}\n\t\t{}\n\theap: {} {} {}\n", __func__, *s, *t, *r, heap1,
+             heap2, heap3);
 }
 
 
@@ -148,6 +149,16 @@ void BM_HEAP_NEW2(benchmark::State& state)
   }
 }
 BENCHMARK(BM_HEAP_NEW2);
+
+void BM_HEAP_NEW3(benchmark::State& state)
+{
+  MM2 mm;
+  [[maybe_unused]] volatile long hp;
+  for (auto _ : state) {
+    hp = mm.compute_heap3();
+  }
+}
+BENCHMARK(BM_HEAP_NEW3);
 
 #ifdef RUN_THE_BM
 
