@@ -3,7 +3,7 @@
 #include "mem_new.h"
 #include "mem_orig.h"
 
-#define RUN_THE_BM
+//#define RUN_THE_BM
 
 
 CephContext stam;

@@ -6,6 +6,7 @@
 
 #include <charconv>
 #include <fstream>
+#include <ranges>
 
 #define dout_subsys ceph_subsys_
 
@@ -62,7 +63,7 @@ inline bool MM2::cmp_against(const std::string& ln, std::string_view param, long
   }
   if (ln.starts_with(param)) {
     auto p = ln.c_str();
-    auto s = ln.c_str() + param.size();
+    auto s = p + param.size();
     // charconv does not like leading spaces
     while (*s && isblank(*s)) {
       s++;
@@ -287,7 +288,7 @@ long MM2::compute_heap2()
 #endif
     std::string_view final_token{the_rest.begin() + sizeof("00000000 00:00 0") - 1,
                                  the_rest.end()};
-    if (final_token.size() < 2 ||
+    if (final_token.size() < 3 ||
         final_token.ends_with("[heap]") /*|| final_token.ends_with("[stack]")*/) {
       // calculate and sum the size of the heap segment
       uint64_t as{0ull};
@@ -329,6 +330,20 @@ long MM2::compute_heap3()
       // '560c03f8d000-560c03fae000 rw-p 00000000 00:00 0'
       continue;
     }
+
+//    //auto prts = std::ranges::views::split(line, ' ');
+//    auto prts = std::ranges::split_view(line, ' ');
+//    auto p2 = (prts+1).begin();
+//    if (!prts[2].starts_with("rw")) {
+//      continue;
+//    }
+// 
+// 
+//     auto dash = line.find('-');
+//         if (dash == std::string::npos) {
+//           continue;
+//         }
+//     auto addrss_end = line.find(' ');
 
     const char* start = line.c_str();
     const char* dash = start;
